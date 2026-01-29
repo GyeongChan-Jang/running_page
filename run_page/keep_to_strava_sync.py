@@ -1,17 +1,15 @@
 import argparse
 import json
 import os
-from sre_constants import SUCCESS
 import time
 from collections import namedtuple
-import requests
-from config import GPX_FOLDER
-from Crypto.Cipher import AES
-from config import OUTPUT_DIR
-from stravalib.exc import ActivityUploadFailed, RateLimitTimeout
-from utils import make_strava_client, upload_file_to_strava
-from keep_sync import KEEP_DATA_TYPE_API, get_all_keep_tracks
+
+from config import GPX_FOLDER, OUTPUT_DIR
+from keep_sync import KEEP_SPORT_TYPES, get_all_keep_tracks
 from strava_sync import run_strava_sync
+from stravalib.exc import ActivityUploadFailed, RateLimitTimeout
+
+from utils import make_strava_client, upload_file_to_strava
 
 """
 Only provide the ability to sync data from Keep's multiple sport types to Strava's corresponding sport types to help those who use multiple devices like me, the web page presentation still uses Strava (or refer to nike_to_strava_sync.py to modify it to suit you).
@@ -26,7 +24,6 @@ KEEP2STRAVA_BK_PATH = os.path.join(OUTPUT_DIR, "keep2strava.json")
 
 
 def run_keep_sync(email, password, keep_sports_data_api, with_download_gpx=False):
-
     if not os.path.exists(KEEP2STRAVA_BK_PATH):
         file = open(KEEP2STRAVA_BK_PATH, "w")
         file.close()
@@ -35,7 +32,8 @@ def run_keep_sync(email, password, keep_sports_data_api, with_download_gpx=False
         with open(KEEP2STRAVA_BK_PATH) as f:
             try:
                 content = json.loads(f.read())
-            except:
+            except json.JSONDecodeError as e:
+                print(f"Error reading JSON file {KEEP2STRAVA_BK_PATH}: {e}")
                 content = []
     old_tracks_ids = [str(a["run_id"]) for a in content]
     _new_tracks = get_all_keep_tracks(
@@ -72,10 +70,10 @@ if __name__ == "__main__":
     )
 
     options = parser.parse_args()
-    for api in options.sync_types:
+    for _tpye in options.sync_types:
         assert (
-            api in KEEP_DATA_TYPE_API
-        ), f"{api} are not supported type, please make sure that the type entered in the {KEEP_DATA_TYPE_API}"
+            _tpye in KEEP_SPORT_TYPES
+        ), f"{_tpye} are not supported type, please make sure that the type entered in the {KEEP_SPORT_TYPES}"
     new_tracks = run_keep_sync(
         options.phone_number, options.password, options.sync_types, True
     )
@@ -103,7 +101,7 @@ if __name__ == "__main__":
                 upload_file_to_strava(client, track.gpx_file_path, "gpx", False)
                 uploaded_file_paths.append(track)
             except ActivityUploadFailed as e:
-                print(f"Upload faild error {str(e)}")
+                print(f"Upload failed error {str(e)}")
             # spider rule
             time.sleep(1)
         else:
@@ -116,7 +114,8 @@ if __name__ == "__main__":
     with open(KEEP2STRAVA_BK_PATH, "r") as f:
         try:
             content = json.loads(f.read())
-        except:
+        except Exception as e:
+            print(f"Error reading JSON file {KEEP2STRAVA_BK_PATH}: {e}")
             content = []
 
     # Extend and Save the successfully uploaded log to the backup file.
@@ -142,5 +141,8 @@ if __name__ == "__main__":
             continue
 
     run_strava_sync(
-        options.client_id, options.client_secret, options.strava_refresh_token
+        options.client_id,
+        options.client_secret,
+        options.strava_refresh_token,
+        sync_types=options.sync_types,
     )
