@@ -25,7 +25,7 @@ tzlocal
 fit-tool
 garmin-fit-sdk
 haversine==2.8.0
-garth
+garth==0.6.3 # >=0.7 is blocked by Garmin's Cloudflare TLS fingerprinting (429 on login/token exchange)
 pycryptodome
 duckdb
 openai==1.88.0
